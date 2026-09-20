@@ -1578,4 +1578,19 @@ final class VKAPIPresenter extends OpenVKPresenter
         $token = "anonym_" . bin2hex(random_bytes(24));
         exit(json_encode(["token" => $token, "expired_at" => time() + 31536000]));
     }
+
+    public function renderGetConfig(): void
+    {
+        header("Content-Type: application/json");
+        $host = preg_replace("/^id\./", "", $_SERVER["HTTP_HOST"] ?? "");
+        $base = "https://" . $host;
+        exit(json_encode([
+            "silent_auth"       => $base . "/?act=connect&response_type={response_type}&uuid={uuid}&v=0.0.2",
+            "user_visible_auth" => $base . "/auth?response_type={response_type}&uuid={uuid}&v=0.0.2&redirect_uri={redirect_uri}",
+            "window_width"      => 870,
+            "window_height"     => 650,
+            "edu_auth_url"      => $base,
+            "edu_reg_url"       => $base,
+        ]));
+    }
 }
