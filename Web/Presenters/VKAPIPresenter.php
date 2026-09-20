@@ -1629,57 +1629,29 @@ final class VKAPIPresenter extends OpenVKPresenter
 
     public function renderEduAuth(): void
     {
-        // The client (n6j) cancels this navigation as soon as ?payload appears, so the
-        // server never actually serves the payload URL; guard just in case it does.
-        if (!empty($this->queryParam("payload"))) {
-            exit("");
-        }
-
         $this->assertUserLoggedIn();
         $user = $this->user->identity;
 
-        // Hand the client a *silent* token (VK ID semantics): the messenger will call
-        // auth.exchangeSilentAuthToken(token, uuid) to trade it for a real access token.
-        $silentToken = bin2hex(random_bytes(24));
-        DB::i()->getContext()->table("im_exchange_tokens")->insert([
-            "token"   => $silentToken,
-            "user"    => $user->getId(),
-            "created" => time(),
-        ]);
-
-        $uuid = $this->queryParam("uuid");
-        if (empty($uuid)) {
-            $uuid = sprintf(
-                "%08x-%04x-%04x-%04x-%012x",
-                random_int(0, 0xffffffff),
-                random_int(0, 0xffff),
-                random_int(0, 0xffff),
-                random_int(0, 0xffff),
-                random_int(0, 0xffffffffffff)
-            );
+        // The EDU/Sferum webview is a plain VK OAuth-implicit flow: the app intercepts a
+        // navigation to redirect_uri with #access_token=...&user_id=... in the fragment
+        // (confirmed via WebView devtools). Hand back a real access token there.
+        $host = preg_replace("/^id\\./", "", $_SERVER["HTTP_HOST"] ?? "");
+        $redirectUri = $this->queryParam("redirect_uri");
+        if (empty($redirectUri) || !filter_var($redirectUri, FILTER_VALIDATE_URL)) {
+            $redirectUri = "https://oauth." . $host . "/blank.html";
         }
 
-        $payload = json_encode([
-            "user" => [
-                "id"         => $user->getId(),
-                "first_name" => $user->getFirstName(),
-                "last_name"  => $user->getLastName(),
-                "phone"      => "",
-                "avatar"     => $user->getAvatarUrl("normal"),
-            ],
-            "uuid"  => $uuid,
-            "token" => $silentToken,
-            "ttl"   => 0,
-        ]);
+        $token = new APIToken();
+        $token->setUser($user);
+        $token->setPlatform("edu");
+        $token->save();
 
-        $host = preg_replace("/^id\\./", "", $_SERVER["HTTP_HOST"] ?? "");
-        $target = "https://" . $host . "/edu_auth?payload=" . rawurlencode($payload);
+        $fragment = "access_token=" . rawurlencode($token->getFormattedToken())
+            . "&expires_in=0&user_id=" . $user->getId();
+        $target = $redirectUri . (strpos($redirectUri, "#") === false ? "#" : "&") . $fragment;
 
-        // The hand-off navigation must be a *fresh* top-level navigation that fires
-        // AFTER this page finished loading: a location change inside the initial
-        // <script> parse is treated as a redirect of the current navigation and never
-        // reaches WebViewClient.shouldOverrideUrlLoading (n6j), so the client would
-        // just load the payload URL and show a blank screen. Defer it past load.
+        // Must be a fresh top-level navigation fired AFTER load, otherwise
+        // WebViewClient.shouldOverrideUrlLoading never sees it.
         $t = json_encode($target);
         header("Content-Type: text/html; charset=UTF-8");
         exit('<!doctype html><meta charset="utf-8"><title>...</title>'
