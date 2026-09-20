@@ -12,7 +12,7 @@ final class Queue extends VKAPIRequestHandler
     {
         $this->requireUser();
 
-        $baseUrl = IMBroker::i()->getLongPollBaseUrl();
+        $baseUrl = "https://" . preg_replace("/^api\./", "", $_SERVER["HTTP_HOST"] ?? "ovk.lgbt.rocks") . "/queue";
         $now     = time();
 
         $ids = [];
