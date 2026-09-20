@@ -210,4 +210,30 @@ final class Auth extends VKAPIRequestHandler
             ]],
         ];
     }
+
+    public function exchangeSilentAuthToken(string $token = "", string $uuid = ""): object
+    {
+        $row = $token === ""
+            ? null
+            : DB::i()->getContext()->table("im_exchange_tokens")->where("token", $token)->fetch();
+        if (!$row) {
+            $this->fail(28, "Invalid silent token", "internal", "exchangeSilentAuthToken");
+        }
+
+        $user = (new Users())->get($row->user);
+        if (!$user) {
+            $this->fail(28, "Invalid silent token", "internal", "exchangeSilentAuthToken");
+        }
+
+        $apiToken = new APIToken();
+        $apiToken->setUser($user);
+        $apiToken->setPlatform("edu");
+        $apiToken->save();
+
+        return (object) [
+            "access_token" => $apiToken->getFormattedToken(),
+            "user_id"      => $user->getId(),
+        ];
+    }
+
 }

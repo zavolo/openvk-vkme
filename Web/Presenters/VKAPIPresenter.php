@@ -1638,10 +1638,14 @@ final class VKAPIPresenter extends OpenVKPresenter
         $this->assertUserLoggedIn();
         $user = $this->user->identity;
 
-        $token = new APIToken();
-        $token->setUser($user);
-        $token->setPlatform("edu");
-        $token->save();
+        // Hand the client a *silent* token (VK ID semantics): the messenger will call
+        // auth.exchangeSilentAuthToken(token, uuid) to trade it for a real access token.
+        $silentToken = bin2hex(random_bytes(24));
+        DB::i()->getContext()->table("im_exchange_tokens")->insert([
+            "token"   => $silentToken,
+            "user"    => $user->getId(),
+            "created" => time(),
+        ]);
 
         $uuid = $this->queryParam("uuid");
         if (empty($uuid)) {
@@ -1664,7 +1668,7 @@ final class VKAPIPresenter extends OpenVKPresenter
                 "avatar"     => $user->getAvatarUrl("normal"),
             ],
             "uuid"  => $uuid,
-            "token" => $token->getFormattedToken(),
+            "token" => $silentToken,
             "ttl"   => 0,
         ]);
 
