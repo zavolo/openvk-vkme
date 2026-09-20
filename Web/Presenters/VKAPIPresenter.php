@@ -1646,8 +1646,8 @@ final class VKAPIPresenter extends OpenVKPresenter
         $token->setPlatform("edu");
         $token->save();
 
-        $fragment = "access_token=" . rawurlencode($token->getFormattedToken())
-            . "&expires_in=0&user_id=" . $user->getId();
+        $fragment = "success=1&access_token=" . rawurlencode($token->getFormattedToken())
+            . "&user_id=" . $user->getId();
         $target = $redirectUri . (strpos($redirectUri, "#") === false ? "#" : "&") . $fragment;
 
         // The app's WebViewClient only intercepts the redirect_uri#access_token
