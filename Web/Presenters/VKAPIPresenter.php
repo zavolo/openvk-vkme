@@ -1261,6 +1261,39 @@ final class VKAPIPresenter extends OpenVKPresenter
 
     public function renderTokenLogin(): void
     {
+        if ($this->requestParam("grant_type") === "exchange_token") {
+            $exchangeToken = $this->requestParam("exchange_token");
+            $row = is_null($exchangeToken) || $exchangeToken === ""
+                ? null
+                : DB::i()->getContext()->table("im_exchange_tokens")->where("token", $exchangeToken)->fetch();
+            if (!$row) {
+                $this->fail(28, "Invalid exchange token", "internal", "acquireToken");
+            }
+
+            $user = (new Users())->get($row->user);
+            if (!$user) {
+                $this->fail(28, "Invalid exchange token", "internal", "acquireToken");
+            }
+
+            $token = new APIToken();
+            $token->setUser($user);
+            $rawClientId = $this->requestParam("client_id");
+            if (!empty($rawClientId) && is_numeric($rawClientId)) {
+                $token->setClientId((int) $rawClientId);
+            }
+            $token->setPlatform($this->requestParam("client_name") ?? (new WhichBrowser\Parser(getallheaders()))->toString());
+            $token->save();
+
+            $this->packMessage([
+                "access_token" => $token->getFormattedToken(),
+                "expires_in"   => 0,
+                "user_id"      => $user->getId(),
+                "is_stale"     => false,
+                "secret"       => "super_secret_value",
+            ]);
+            return;
+        }
+
         if (!in_array($this->requestParam("grant_type"), ["password", "phone_confirmation_sid", "phone_confirmation"], true)) {
             $this->fail(7, "Invalid grant type", "internal", "acquireToken");
         } elseif (is_null($this->requestParam("username")) || is_null($this->requestParam("password"))) {

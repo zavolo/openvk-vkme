@@ -146,36 +146,44 @@ final class Auth extends VKAPIRequestHandler
     {
         $this->requireUser();
 
-        $user = $this->getUser();
-        $profile = (object) [
-            "id"                     => $user->getId(),
-            "first_name"             => (string) $user->getFirstName(),
-            "last_name"              => (string) $user->getLastName(),
-            "photo_200"              => $user->getAvatarURL("normal"),
-            "screen_name"            => (string) ($user->getShortCode() ?? ("id" . $user->getId())),
-            "phone"                  => "",
-            "email"                  => "",
-            "is_banned"              => false,
-            "is_banned_forever"      => false,
-            "is_celebrity"           => false,
-            "is_deactivated"         => false,
-            "is_verified"            => (bool) $user->isVerified(),
-            "account_security_level" => 0,
-            "age_group"              => 0,
-        ];
-
-        $count = 1;
-        if ($exchange_tokens !== "") {
-            $count = max(1, count(array_filter(explode(",", $exchange_tokens), fn($token) => trim($token) !== "")));
+        $tokens = array_values(array_filter(array_map("trim", explode(",", $exchange_tokens)), fn ($token) => $token !== ""));
+        if (empty($tokens)) {
+            $tokens = [""];
         }
 
         $items = [];
-        for ($index = 0; $index < $count; $index++) {
+        foreach ($tokens as $tok) {
+            $account = null;
+            if ($tok !== "") {
+                $row = DB::i()->getContext()->table("im_exchange_tokens")->where("token", $tok)->fetch();
+                if ($row) {
+                    $account = (new Users())->get($row->user);
+                }
+            }
+            if (!$account) {
+                $account = $this->getUser();
+            }
+
             $items[] = (object) [
                 "error"                => null,
                 "notification_counter" => 0,
                 "tier"                 => 0,
-                "profile"              => $profile,
+                "profile"              => (object) [
+                    "id"                     => $account->getId(),
+                    "first_name"             => (string) $account->getFirstName(),
+                    "last_name"              => (string) $account->getLastName(),
+                    "photo_200"              => $account->getAvatarURL("normal"),
+                    "screen_name"            => (string) ($account->getShortCode() ?? ("id" . $account->getId())),
+                    "phone"                  => "",
+                    "email"                  => "",
+                    "is_banned"              => false,
+                    "is_banned_forever"      => false,
+                    "is_celebrity"           => false,
+                    "is_deactivated"         => false,
+                    "is_verified"            => (bool) $account->isVerified(),
+                    "account_security_level" => 0,
+                    "age_group"              => 0,
+                ],
             ];
         }
 
@@ -187,10 +195,17 @@ final class Auth extends VKAPIRequestHandler
         $this->requireUser();
         $user = $this->getUser();
 
+        $token = bin2hex(random_bytes(24));
+        DB::i()->getContext()->table("im_exchange_tokens")->insert([
+            "token"   => $token,
+            "user"    => $user->getId(),
+            "created" => time(),
+        ]);
+
         return (object) [
             "users_exchange_tokens" => [(object) [
                 "user_id"      => $user->getId(),
-                "common_token" => bin2hex(random_bytes(24)),
+                "common_token" => $token,
                 "tier_tokens"  => [],
             ]],
         ];

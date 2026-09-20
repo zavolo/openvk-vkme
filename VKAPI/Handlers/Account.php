@@ -562,6 +562,10 @@ final class Account extends VKAPIRequestHandler
                     "photo_100"  => $user->getAvatarURL("tiny"),
                     "photo_200"  => $user->getAvatarURL("normal"),
                     "photo_base" => $user->getAvatarURL("normal"),
+                    "screen_name"        => (string) ($user->getShortCode() ?? ("id" . $user->getId())),
+                    "is_closed"          => (bool) $user->isClosed(),
+                    "can_access_closed"  => true,
+                    "profile_type"       => 0,
                 ],
             ],
         ];
