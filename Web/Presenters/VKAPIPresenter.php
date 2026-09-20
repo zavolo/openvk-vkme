@@ -1671,9 +1671,19 @@ final class VKAPIPresenter extends OpenVKPresenter
         $host = preg_replace("/^id\\./", "", $_SERVER["HTTP_HOST"] ?? "");
         $target = "https://" . $host . "/edu_auth?payload=" . rawurlencode($payload);
 
+        // The hand-off navigation must be a *fresh* top-level navigation that fires
+        // AFTER this page finished loading: a location change inside the initial
+        // <script> parse is treated as a redirect of the current navigation and never
+        // reaches WebViewClient.shouldOverrideUrlLoading (n6j), so the client would
+        // just load the payload URL and show a blank screen. Defer it past load.
+        $t = json_encode($target);
         header("Content-Type: text/html; charset=UTF-8");
         exit('<!doctype html><meta charset="utf-8"><title>...</title>'
-            . '<script>location.replace(' . json_encode($target) . ');</script>');
+            . '<script>var t=' . $t . ';'
+            . 'function go(){window.location.assign(t);}'
+            . 'if(document.readyState==="complete"){setTimeout(go,30);}'
+            . 'else{window.addEventListener("load",function(){setTimeout(go,30);});}'
+            . '</script>');
     }
 
 }
