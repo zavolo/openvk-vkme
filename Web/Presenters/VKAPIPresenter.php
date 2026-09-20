@@ -1622,8 +1622,58 @@ final class VKAPIPresenter extends OpenVKPresenter
             "user_visible_auth" => $base . "/auth?response_type={response_type}&uuid={uuid}&v=0.0.2&redirect_uri={redirect_uri}",
             "window_width"      => 870,
             "window_height"     => 650,
-            "edu_auth_url"      => $base,
-            "edu_reg_url"       => $base,
+            "edu_auth_url"      => $base . "/edu_auth",
+            "edu_reg_url"       => $base . "/edu_auth",
         ]));
     }
+
+    public function renderEduAuth(): void
+    {
+        // The client (n6j) cancels this navigation as soon as ?payload appears, so the
+        // server never actually serves the payload URL; guard just in case it does.
+        if (!empty($this->queryParam("payload"))) {
+            exit("");
+        }
+
+        $this->assertUserLoggedIn();
+        $user = $this->user->identity;
+
+        $token = new APIToken();
+        $token->setUser($user);
+        $token->setPlatform("edu");
+        $token->save();
+
+        $uuid = $this->queryParam("uuid");
+        if (empty($uuid)) {
+            $uuid = sprintf(
+                "%08x-%04x-%04x-%04x-%012x",
+                random_int(0, 0xffffffff),
+                random_int(0, 0xffff),
+                random_int(0, 0xffff),
+                random_int(0, 0xffff),
+                random_int(0, 0xffffffffffff)
+            );
+        }
+
+        $payload = json_encode([
+            "user" => [
+                "id"         => $user->getId(),
+                "first_name" => $user->getFirstName(),
+                "last_name"  => $user->getLastName(),
+                "phone"      => "",
+                "avatar"     => $user->getAvatarUrl("normal"),
+            ],
+            "uuid"  => $uuid,
+            "token" => $token->getFormattedToken(),
+            "ttl"   => 0,
+        ]);
+
+        $host = preg_replace("/^id\\./", "", $_SERVER["HTTP_HOST"] ?? "");
+        $target = "https://" . $host . "/edu_auth?payload=" . rawurlencode($payload);
+
+        header("Content-Type: text/html; charset=UTF-8");
+        exit('<!doctype html><meta charset="utf-8"><title>...</title>'
+            . '<script>location.replace(' . json_encode($target) . ');</script>');
+    }
+
 }

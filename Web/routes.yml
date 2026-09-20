@@ -453,6 +453,8 @@ routes:
       handler: "VKAPI->getAnonymToken"
     - url: "/get_config"
       handler: "VKAPI->getConfig"
+    - url: "/edu_auth"
+      handler: "VKAPI->eduAuth"
     - url: "/oauth/get_anonym_token"
       handler: "VKAPI->getAnonymToken"
     - url: "/authorize"
