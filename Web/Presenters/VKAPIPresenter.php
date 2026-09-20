@@ -1650,16 +1650,25 @@ final class VKAPIPresenter extends OpenVKPresenter
             . "&expires_in=0&user_id=" . $user->getId();
         $target = $redirectUri . (strpos($redirectUri, "#") === false ? "#" : "&") . $fragment;
 
-        // Must be a fresh top-level navigation fired AFTER load, otherwise
-        // WebViewClient.shouldOverrideUrlLoading never sees it.
+        // The app's WebViewClient only intercepts the redirect_uri#access_token
+        // navigation when it carries a real user gesture (an auto/JS redirect just
+        // loads blank.html instead). So require one explicit tap to continue.
         $t = json_encode($target);
         header("Content-Type: text/html; charset=UTF-8");
-        exit('<!doctype html><meta charset="utf-8"><title>...</title>'
+        exit('<!doctype html><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+            . '<title>Сферум</title>'
+            . '<style>html,body{margin:0;height:100%}'
+            . 'body{display:flex;align-items:center;justify-content:center;'
+            . 'font-family:-apple-system,Roboto,Segoe UI,sans-serif;background:#fff;color:#111}'
+            . '#go{-webkit-appearance:none;appearance:none;border:0;cursor:pointer;'
+            . 'font-size:17px;font-weight:600;padding:15px 30px;border-radius:14px;'
+            . 'background:#2787f5;color:#fff;box-shadow:0 4px 14px rgba(39,135,245,.35)}'
+            . '</style>'
+            . '<button id="go" type="button">Продолжить</button>'
             . '<script>var t=' . $t . ';'
-            . 'function go(){window.location.assign(t);}'
-            . 'if(document.readyState==="complete"){setTimeout(go,30);}'
-            . 'else{window.addEventListener("load",function(){setTimeout(go,30);});}'
-            . '</script>');
+            . 'document.getElementById("go").addEventListener("click",function(){'
+            . 'window.location.assign(t);});</script>');
     }
 
 }
